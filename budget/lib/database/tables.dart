@@ -26,7 +26,7 @@ import 'package:budget/pages/activityPage.dart';
 import 'package:flutter/material.dart' show RangeValues;
 part 'tables.g.dart';
 
-int schemaVersionGlobal = 46;
+int schemaVersionGlobal = 49;
 
 // To update and migrate the database, check the README
 
@@ -125,6 +125,7 @@ enum MethodAdded {
   csv,
   preview,
   appLink,
+  simplefin,
 }
 
 enum SharedStatus { waiting, shared, error }
@@ -265,6 +266,13 @@ class Wallets extends Table {
       .nullable()
       .withDefault(const Constant(null))
       .map(const HomePageWidgetDisplayListInColumnConverter())();
+  TextColumn get simplefinConnectionFk => text().nullable()();
+  TextColumn get simplefinAccountId => text().nullable()();
+  DateTimeColumn get simplefinSyncStartDate => dateTime().nullable()();
+  DateTimeColumn get simplefinLastSynced => dateTime().nullable()();
+  RealColumn get simplefinBalance => real().nullable()();
+  DateTimeColumn get simplefinBalanceDate => dateTime().nullable()();
+  TextColumn get simplefinError => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {walletPk};
@@ -334,6 +342,9 @@ class Transactions extends Table {
       text().references(Objectives, #objectivePk).nullable()();
   TextColumn get budgetFksExclude =>
       text().map(const StringListInColumnConverter()).nullable()();
+  TextColumn get simplefinTransactionId => text().nullable()();
+  BoolColumn get simplefinUnreviewed =>
+      boolean().withDefault(const Constant(false)).nullable()();
 
   @override
   Set<Column> get primaryKey => {transactionPk};
@@ -676,6 +687,20 @@ class CategoryWithTotal {
 // all relevant delete queries create delete logs
 // Modify processSyncLogs to process the update/creation and delete!
 // Modify syncData to process the newly created!
+class SimplefinConnections extends Table {
+  TextColumn get connectionPk => text().clientDefault(() => uuid.v4())();
+  TextColumn get label => text().withLength(max: NAME_LIMIT)();
+  TextColumn get secureStorageKey => text()();
+  TextColumn get status => text().withDefault(const Constant('active'))();
+  TextColumn get lastError => text().nullable()();
+  DateTimeColumn get dateCreated =>
+      dateTime().clientDefault(() => DateTime.now())();
+  DateTimeColumn get lastSynced => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {connectionPk};
+}
+
 @DriftDatabase(tables: [
   Wallets,
   Transactions,
@@ -688,6 +713,7 @@ class CategoryWithTotal {
   ScannerTemplates,
   DeleteLogs,
   Objectives,
+  SimplefinConnections,
 ])
 class FinanceDatabase extends _$FinanceDatabase {
   // FinanceDatabase() : super(_openConnection());
@@ -696,6 +722,21 @@ class FinanceDatabase extends _$FinanceDatabase {
   // you should bump this number whenever you change or add a table definition
   @override
   int get schemaVersion => schemaVersionGlobal;
+
+  Future<void> _addColumnsSafely(
+    Migrator m,
+    TableInfo table,
+    List<GeneratedColumn> columns,
+  ) async {
+    for (final col in columns) {
+      try {
+        await m.addColumn(table, col);
+      } catch (e) {
+        print(
+            "Migration Error: Error creating column ${table.actualTableName}.${col.$name} $e");
+      }
+    }
+  }
 
   @override
   MigrationStrategy get migration {
@@ -1163,6 +1204,34 @@ class FinanceDatabase extends _$FinanceDatabase {
                     "Migration Error: Error creating column objectives.type " +
                         e.toString());
               }
+            },
+            from46To47: (m, schema) async {
+              try {
+                await m.createTable(schema.simplefinConnections);
+              } catch (e) {
+                print(
+                    "Migration Error: Error creating table simplefinConnections " +
+                        e.toString());
+              }
+            },
+            from47To48: (m, schema) async {
+              await _addColumnsSafely(m, schema.wallets, [
+                schema.wallets.simplefinConnectionFk,
+                schema.wallets.simplefinAccountId,
+                schema.wallets.simplefinSyncStartDate,
+                schema.wallets.simplefinLastSynced,
+              ]);
+            },
+            from48To49: (m, schema) async {
+              await _addColumnsSafely(m, schema.wallets, [
+                schema.wallets.simplefinBalance,
+                schema.wallets.simplefinBalanceDate,
+                schema.wallets.simplefinError,
+              ]);
+              await _addColumnsSafely(m, schema.transactions, [
+                schema.transactions.simplefinTransactionId,
+                schema.transactions.simplefinUnreviewed,
+              ]);
             },
           ),
         );

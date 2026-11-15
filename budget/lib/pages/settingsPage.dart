@@ -1,4 +1,5 @@
 import 'package:budget/colors.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:budget/database/tables.dart' hide AppSettings;
 import 'package:budget/pages/aboutPage.dart';
 import 'package:budget/pages/addTransactionPage.dart';
@@ -22,6 +23,7 @@ import 'package:budget/widgets/exportDB.dart';
 import 'package:budget/widgets/importCSV.dart';
 import 'package:budget/widgets/exportCSV.dart';
 import 'package:budget/pages/autoTransactionsPageEmail.dart';
+import 'package:budget/pages/simplefinSettingsPage.dart';
 import 'package:budget/pages/activityPage.dart';
 import 'package:budget/pages/editAssociatedTitlesPage.dart';
 import 'package:budget/pages/editBudgetPage.dart';
@@ -563,6 +565,16 @@ class SettingsPageContent extends StatelessWidget {
         ),
 
         SettingsHeader(title: "tools-and-extras".tr()),
+        !kIsWeb
+            ? SettingsContainerOpenPage(
+                openPage: SimplefinSettingsPage(),
+                title: "SimpleFIN Bank Sync",
+                description: "Connect bank accounts via SimpleFIN Bridge",
+                icon: appStateSettings["outlinedIcons"]
+                    ? Icons.account_balance_outlined
+                    : Icons.account_balance_rounded,
+              )
+            : SizedBox.shrink(),
         // SettingsContainerOpenPage(
         //   openPage: AutoTransactionsPage(),
         //   title: "Auto Transactions",

@@ -14,6 +14,7 @@ import 'package:budget/widgets/util/watchForDayChange.dart';
 import 'package:budget/widgets/watchAllWallets.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/simplefinService.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/struct/notificationsGlobal.dart';
 import 'package:budget/widgets/navigationSidebar.dart';
@@ -150,6 +151,10 @@ class App extends StatelessWidget {
           updateGlobalAppLifecycleState: true,
           onAppResume: () async {
             await setHighRefreshRate();
+            if (!kIsWeb) {
+              // Fire-and-forget throttled sync on launch/resume.
+              SimplefinService(db: database).syncAllDueConnections();
+            }
           },
           child: InitializeBiometrics(
             child: InitializeNotificationService(
