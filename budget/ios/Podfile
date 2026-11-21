@@ -50,4 +50,16 @@ post_install do |installer|
       end
     end
   end
+
+  # Fix gRPC-Core/gRPC-C++ template keyword syntax error on Xcode 16.3+ / Clang 19+
+  ['Pods/gRPC-Core', 'Pods/gRPC-C++'].each do |pod_dir|
+    basic_seq = File.join(__dir__, pod_dir, 'src/core/lib/promise/detail/basic_seq.h')
+    next unless File.exist?(basic_seq)
+    content = File.read(basic_seq)
+    patched = content.gsub('Traits::template CallSeqFactory(', 'Traits::template CallSeqFactory<>(')
+    if patched != content
+      File.chmod(0644, basic_seq)
+      File.write(basic_seq, patched)
+    end
+  end
 end
