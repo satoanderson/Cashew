@@ -981,5 +981,81 @@ void main() {
           .getSingle();
       expect(wallet.simplefinError, contains('2FA'));
     });
+
+    test(
+        'beforeOpen self-heals SimpleFIN table and columns when PRAGMA user_version >= 49',
+        () async {
+      final rawDb = NativeDatabase.memory(
+        setup: (sqliteDb) {
+          sqliteDb.execute('PRAGMA user_version = 50;');
+          sqliteDb.execute('''
+            CREATE TABLE wallets (
+              wallet_pk TEXT NOT NULL PRIMARY KEY,
+              name TEXT NOT NULL,
+              colour TEXT,
+              icon_name TEXT,
+              date_created INTEGER NOT NULL,
+              date_time_modified INTEGER,
+              "order" INTEGER NOT NULL,
+              currency TEXT,
+              currency_format TEXT,
+              decimals INTEGER NOT NULL DEFAULT 2,
+              home_page_widget_display TEXT
+            );
+          ''');
+          sqliteDb.execute('''
+            CREATE TABLE transactions (
+              transaction_pk TEXT NOT NULL PRIMARY KEY,
+              paired_transaction_fk TEXT,
+              name TEXT NOT NULL,
+              amount REAL NOT NULL,
+              note TEXT NOT NULL,
+              category_fk TEXT NOT NULL,
+              sub_category_fk TEXT,
+              wallet_fk TEXT NOT NULL,
+              date_created INTEGER NOT NULL,
+              date_time_modified INTEGER,
+              original_date_due INTEGER,
+              income INTEGER NOT NULL,
+              period_length INTEGER,
+              reoccurrence INTEGER,
+              end_date INTEGER,
+              upcoming_transaction_notification INTEGER,
+              type INTEGER,
+              paid INTEGER NOT NULL,
+              created_another_future_transaction INTEGER,
+              skip_paid INTEGER NOT NULL,
+              method_added INTEGER,
+              transaction_owner_email TEXT,
+              transaction_original_owner_email TEXT,
+              shared_key TEXT,
+              shared_old_key TEXT,
+              shared_status INTEGER,
+              shared_date_updated INTEGER,
+              shared_reference_budget_pk TEXT,
+              objective_fk TEXT,
+              objective_loan_fk TEXT,
+              budget_fks_exclude TEXT
+            );
+          ''');
+        },
+      );
+      final restoredDb = FinanceDatabase(rawDb);
+      addTearDown(restoredDb.close);
+
+      final claimUrl = 'https://beta-bridge.simplefin.org/simplefin/claim/OK';
+      final token = base64Encode(utf8.encode(claimUrl));
+      final service = SimplefinService(
+        db: restoredDb,
+        secretStore: secretStore,
+        httpClient: MockClient((_) async =>
+            http.Response('https://u:p@beta-bridge.simplefin.org/api', 200)),
+      );
+
+      final conn = await service.claimSetupToken(token, label: 'Restored');
+      expect(conn.label, 'Restored');
+      final wallets = await restoredDb.select(restoredDb.wallets).get();
+      expect(wallets, isEmpty);
+    });
   });
 }

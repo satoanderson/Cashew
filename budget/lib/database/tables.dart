@@ -1247,6 +1247,26 @@ class FinanceDatabase extends _$FinanceDatabase {
           // The column already existed
         }
 
+        // Ensure SimpleFIN schema exists even when opening a backup from a
+        // newer upstream schemaVersion where onUpgrade 46->49 did not run.
+        final simplefinMigrator = createMigrator();
+        try {
+          await simplefinMigrator.createTable(simplefinConnections);
+        } catch (_) {}
+        await _addColumnsSafely(simplefinMigrator, wallets, [
+          wallets.simplefinConnectionFk,
+          wallets.simplefinAccountId,
+          wallets.simplefinSyncStartDate,
+          wallets.simplefinLastSynced,
+          wallets.simplefinBalance,
+          wallets.simplefinBalanceDate,
+          wallets.simplefinError,
+        ]);
+        await _addColumnsSafely(simplefinMigrator, transactions, [
+          transactions.simplefinTransactionId,
+          transactions.simplefinUnreviewed,
+        ]);
+
         if (details.hadUpgrade && details.versionBefore != null) {
           print(
               "Migration Version Before: " + details.versionBefore.toString());
