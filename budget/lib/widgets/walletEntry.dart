@@ -15,6 +15,7 @@ import 'package:budget/widgets/textWidgets.dart';
 import 'package:budget/widgets/transactionEntry/incomeAmountArrow.dart';
 import 'package:budget/widgets/watchAllWallets.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:budget/pages/walletDetailsPage.dart';
 import 'package:budget/colors.dart';
@@ -66,16 +67,39 @@ class WalletEntry extends StatelessWidget {
                     PositionedDirectional(
                       end: -11,
                       top: -5,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadiusDirectional.circular(100),
-                          color: HexColor(walletWithDetails.wallet.colour,
-                                  defaultColor:
-                                      Theme.of(context).colorScheme.primary)
-                              .withOpacity(0.7),
-                        ),
-                        width: 20,
-                        height: 20,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (!kIsWeb &&
+                              walletWithDetails.wallet.simplefinError != null &&
+                              walletWithDetails.wallet.simplefinError!
+                                  .isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsetsDirectional.only(end: 4),
+                              child: Tooltip(
+                                message:
+                                    walletWithDetails.wallet.simplefinError!,
+                                child: Icon(
+                                  Icons.warning_amber_rounded,
+                                  size: 18,
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                              ),
+                            ),
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius:
+                                  BorderRadiusDirectional.circular(100),
+                              color: HexColor(walletWithDetails.wallet.colour,
+                                      defaultColor: Theme.of(context)
+                                          .colorScheme
+                                          .primary)
+                                  .withOpacity(0.7),
+                            ),
+                            width: 20,
+                            height: 20,
+                          ),
+                        ],
                       ),
                     ),
                     Container(

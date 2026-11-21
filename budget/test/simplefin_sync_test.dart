@@ -891,5 +891,95 @@ void main() {
           .getSingle();
       expect(cat.name, 'Unknown');
     });
+
+    test('createWalletForAccount enforces 1:1 mapping by unlinking prior Wallet',
+        () async {
+      await db.into(db.simplefinConnections).insert(
+            SimplefinConnectionsCompanion.insert(
+              connectionPk: const drift.Value('conn-1to1'),
+              label: 'Bank',
+              secureStorageKey: 'secret-1to1',
+            ),
+          );
+      final service = SimplefinService(
+        db: db,
+        secretStore: secretStore,
+        httpClient: MockClient((_) async => http.Response('{}', 200)),
+      );
+      final account = SimplefinAccountData(
+        id: 'acc-1',
+        name: 'Checking',
+        currency: 'USD',
+        balance: 100.0,
+      );
+
+      final first = await service.createWalletForAccount(
+        connectionPk: 'conn-1to1',
+        account: account,
+      );
+      final second = await service.createWalletForAccount(
+        connectionPk: 'conn-1to1',
+        account: account,
+      );
+
+      final reloadedFirst = await (db.select(db.wallets)
+            ..where((w) => w.walletPk.equals(first.walletPk)))
+          .getSingle();
+      expect(reloadedFirst.simplefinConnectionFk, isNull);
+      expect(reloadedFirst.simplefinAccountId, isNull);
+      expect(second.simplefinConnectionFk, 'conn-1to1');
+      expect(second.simplefinAccountId, 'acc-1');
+    });
+
+    test('syncConnection propagates generic 2FA/bank errors to linked Wallets',
+        () async {
+      await db.into(db.simplefinConnections).insert(
+            SimplefinConnectionsCompanion.insert(
+              connectionPk: const drift.Value('conn-2fa'),
+              label: 'Bank',
+              secureStorageKey: 'secret-2fa',
+            ),
+          );
+      await secretStore.write('secret-2fa', 'https://u:p@example.com/api');
+      await db.into(db.wallets).insert(
+            WalletsCompanion.insert(
+              walletPk: const drift.Value('w-2fa'),
+              name: 'Checking',
+              currency: const drift.Value('usd'),
+              order: 0,
+              simplefinConnectionFk: const drift.Value('conn-2fa'),
+              simplefinAccountId: const drift.Value('acc-2fa'),
+            ),
+          );
+
+      final mockClient = MockClient((_) async => http.Response(
+            jsonEncode({
+              'errors': ['Institution requires 2FA re-authentication'],
+              'accounts': [
+                {
+                  'id': 'acc-2fa',
+                  'name': 'Checking',
+                  'currency': 'USD',
+                  'balance': '50.00',
+                  'balance-date': 1700000000,
+                  'transactions': [],
+                },
+              ],
+            }),
+            200,
+          ));
+
+      final service = SimplefinService(
+        db: db,
+        secretStore: secretStore,
+        httpClient: mockClient,
+      );
+      await service.syncConnection('conn-2fa', force: true);
+
+      final wallet = await (db.select(db.wallets)
+            ..where((w) => w.walletPk.equals('w-2fa')))
+          .getSingle();
+      expect(wallet.simplefinError, contains('2FA'));
+    });
   });
 }

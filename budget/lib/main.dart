@@ -56,6 +56,10 @@ void main() async {
     await loadCurrencyJSON();
     await loadLanguageNamesJSON();
     await initializeSettings();
+    if (!kIsWeb) {
+      // Fire-and-forget throttled sync on cold launch.
+      SimplefinService.syncAllDue(database);
+    }
     tz.initializeTimeZones();
     final String? locationName = await FlutterTimezone.getLocalTimezone();
     tz.setLocalLocation(tz.getLocation(locationName ?? "America/New_York"));
@@ -152,8 +156,8 @@ class App extends StatelessWidget {
           onAppResume: () async {
             await setHighRefreshRate();
             if (!kIsWeb) {
-              // Fire-and-forget throttled sync on launch/resume.
-              SimplefinService(db: database).syncAllDueConnections();
+              // Fire-and-forget throttled sync on resume.
+              SimplefinService.syncAllDue(database);
             }
           },
           child: InitializeBiometrics(

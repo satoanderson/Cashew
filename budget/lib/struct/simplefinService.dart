@@ -416,6 +416,18 @@ class SimplefinService {
         startDate ?? now.subtract(const Duration(days: 30));
     final newWalletPk = const Uuid().v4();
 
+    // Enforce 1:1 mapping: unlink any wallet previously mapped to this account.
+    await (db.update(db.wallets)
+          ..where((t) =>
+              t.simplefinConnectionFk.equals(connectionPk) &
+              t.simplefinAccountId.equals(account.id)))
+        .write(
+      const WalletsCompanion(
+        simplefinConnectionFk: Value(null),
+        simplefinAccountId: Value(null),
+      ),
+    );
+
     await db.into(db.wallets).insert(
           WalletsCompanion.insert(
             walletPk: Value(newWalletPk),
@@ -483,16 +495,30 @@ class SimplefinService {
     final pendingInsert = <(TransactionWallet, SimplefinTransactionData, String?)>[];
     final unmatchedDescriptions = <String>{};
 
+    final knownAccountTokens = <String>[
+      for (final a in response.accounts) ...[a.name.toLowerCase(), a.id],
+      for (final w in linkedWallets) ...[
+        w.name.toLowerCase(),
+        if (w.simplefinAccountId != null && w.simplefinAccountId!.isNotEmpty)
+          w.simplefinAccountId!,
+      ],
+    ];
+    final genericErrors = response.errors
+        .where((e) => !knownAccountTokens
+            .any((tok) => tok.isNotEmpty && e.toLowerCase().contains(tok.toLowerCase())))
+        .toList();
+
     for (final wallet in linkedWallets) {
       final account = accountsById[wallet.simplefinAccountId];
       final accountName = account?.name ?? wallet.name;
       final accountId = account?.id ?? wallet.simplefinAccountId ?? '';
 
-      final matchingErrors = response.errors
-          .where((e) =>
-              e.toLowerCase().contains(accountName.toLowerCase()) ||
-              (accountId.isNotEmpty && e.contains(accountId)))
-          .toList();
+      final matchingErrors = [
+        ...response.errors.where((e) =>
+            e.toLowerCase().contains(accountName.toLowerCase()) ||
+            (accountId.isNotEmpty && e.contains(accountId))),
+        ...genericErrors,
+      ];
       final walletError = matchingErrors.isNotEmpty
           ? matchingErrors.join('; ')
           : null;
@@ -894,6 +920,19 @@ class SimplefinService {
     return (db.select(db.transactions)
           ..where((t) => t.transactionPk.equals(txPk)))
         .getSingle();
+  }
+
+  /// Runs [syncAllDueConnections] with a temporary [http.Client] and closes it.
+  static Future<Map<String, SimplefinSyncResult>> syncAllDue(
+    FinanceDatabase db,
+  ) async {
+    final client = http.Client();
+    try {
+      return await SimplefinService(db: db, httpClient: client)
+          .syncAllDueConnections();
+    } finally {
+      client.close();
+    }
   }
 
   /// Syncs all configured SimpleFIN connections that have not synced within
