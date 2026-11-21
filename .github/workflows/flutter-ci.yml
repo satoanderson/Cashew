@@ -1,0 +1,35 @@
+name: Flutter Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  analyze_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.6'
+          cache: true
+      - name: Install SQLite for Drift native tests
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+      - name: Install dependencies
+        working-directory: budget
+        run: flutter pub get
+      - name: Analyze SimpleFIN files
+        working-directory: budget
+        run: >
+          flutter analyze
+          lib/struct/simplefinService.dart
+          lib/pages/simplefinSettingsPage.dart
+          lib/pages/simplefinReviewPage.dart
+          lib/pages/homePage/homePage.dart
+          test/simplefin_sync_test.dart
+          integration_test/simplefin_e2e_test.dart
+      - name: Run SimpleFIN tests
+        working-directory: budget
+        # widget_test.dart is an upstream commented-out template, so scope to passing suites.
+        run: flutter test test/simplefin_sync_test.dart

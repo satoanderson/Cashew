@@ -11,3 +11,7 @@ Canonical five-role labels (`needs-triage`, `needs-info`, `ready-for-agent`, `re
 ### Domain docs
 
 Single-context layout (`GLOSSARY.md` and `docs/adr/`). See `docs/agents/domain.md`.
+
+### Development and testing
+
+Building, running checks, or launching the Android emulator in WSL. See `docs/dev-setup.md`.
