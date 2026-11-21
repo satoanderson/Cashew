@@ -1,0 +1,12 @@
+[tools]
+android-sdk = "latest"
+flutter = "3.19.6"
+java = "17"
+
+[tasks.check]
+description = "Analyze SimpleFIN files and run SimpleFIN unit/service tests"
+dir = "budget"
+run = """
+flutter analyze lib/struct/simplefinService.dart lib/pages/simplefinSettingsPage.dart lib/pages/simplefinReviewPage.dart lib/pages/homePage/homePage.dart test/simplefin_sync_test.dart integration_test/simplefin_e2e_test.dart
+flutter test test/simplefin_sync_test.dart
+"""
