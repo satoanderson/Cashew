@@ -16,7 +16,10 @@ import 'package:budget/pages/homePage/homePageUpcomingTransactions.dart';
 import 'package:budget/pages/homePage/homePageAllSpendingSummary.dart';
 import 'package:budget/pages/editHomePage.dart';
 import 'package:budget/pages/settingsPage.dart';
+import 'package:budget/pages/simplefinReviewPage.dart';
 import 'package:budget/pages/homePage/homePageCreditDebts.dart';
+import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/simplefinService.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/button.dart';
@@ -273,17 +276,23 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                 ),
                               )
                             : SizedBox.shrink(),
-                        Tooltip(
-                          message: "edit-home".tr(),
-                          child: IconButton(
-                            padding: EdgeInsetsDirectional.all(15),
-                            onPressed: () {
-                              pushRoute(context, EditHomePage());
-                            },
-                            icon: Icon(appStateSettings["outlinedIcons"]
-                                ? Icons.more_vert_outlined
-                                : Icons.more_vert_rounded),
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (!kIsWeb) const _SimplefinReviewHomeIcon(),
+                            Tooltip(
+                              message: "edit-home".tr(),
+                              child: IconButton(
+                                padding: EdgeInsetsDirectional.all(15),
+                                onPressed: () {
+                                  pushRoute(context, EditHomePage());
+                                },
+                                icon: Icon(appStateSettings["outlinedIcons"]
+                                    ? Icons.more_vert_outlined
+                                    : Icons.more_vert_rounded),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -551,6 +560,43 @@ class _HomePageRatingBoxState extends State<HomePageRatingBox> {
                 ),
               ),
             ),
+    );
+  }
+}
+
+class _SimplefinReviewHomeIcon extends StatefulWidget {
+  const _SimplefinReviewHomeIcon();
+
+  @override
+  State<_SimplefinReviewHomeIcon> createState() =>
+      _SimplefinReviewHomeIconState();
+}
+
+class _SimplefinReviewHomeIconState extends State<_SimplefinReviewHomeIcon> {
+  late final Stream<int> _unreviewedCountStream =
+      SimplefinService.watchUnreviewedTransactionCount(database);
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<int>(
+      stream: _unreviewedCountStream,
+      builder: (context, snapshot) {
+        final count = snapshot.data ?? 0;
+        if (count <= 0) return const SizedBox.shrink();
+        return Tooltip(
+          message: '$count transactions to review',
+          child: IconButton(
+            padding: const EdgeInsetsDirectional.all(15),
+            onPressed: () {
+              pushRoute(context, const SimplefinReviewPage());
+            },
+            icon: Badge.count(
+              count: count,
+              child: const Icon(Icons.rate_review_outlined),
+            ),
+          ),
+        );
+      },
     );
   }
 }

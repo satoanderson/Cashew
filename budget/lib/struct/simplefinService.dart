@@ -772,6 +772,13 @@ class SimplefinService {
         .get();
   }
 
+  static Stream<int> watchUnreviewedTransactionCount(FinanceDatabase db) {
+    return (db.select(db.transactions)
+          ..where((t) => t.simplefinUnreviewed.equals(true)))
+        .watch()
+        .map((rows) => rows.length);
+  }
+
   /// Marks an Unreviewed Transaction as reviewed without altering its category
   /// or amount.
   Future<void> confirmTransactionReviewed(String transactionPk) async {
